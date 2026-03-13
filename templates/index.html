@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Memory Manager</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+
+/* Header */
+.header { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
+.header h1 { font-size: 18px; font-weight: 600; color: #f0f6fc; }
+.header .logo { font-size: 22px; }
+.header .subtitle { color: #8b949e; font-size: 13px; margin-left: auto; }
+
+/* Layout */
+.layout { display: flex; height: calc(100vh - 53px); }
+.sidebar { width: 240px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; }
+.main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 1px solid #30363d; background: #161b22; }
+.tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.tab:hover { color: #c9d1d9; }
+.tab.active { color: #f0f6fc; border-bottom-color: #f78166; }
+
+/* Sidebar nav */
+.sidebar-title { padding: 12px 16px 8px; font-size: 11px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+.sidebar-item { padding: 8px 16px; cursor: pointer; font-size: 13px; color: #8b949e; border-left: 3px solid transparent; transition: all 0.15s; }
+.sidebar-item:hover { background: #21262d; color: #c9d1d9; }
+.sidebar-item.active { background: #21262d; color: #f0f6fc; border-left-color: #f78166; }
+.sidebar-item .badge { float: right; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-top: 1px; }
+.badge-user { background: #1f6feb30; color: #58a6ff; border: 1px solid #1f6feb60; }
+.badge-feedback { background: #da361430; color: #f85149; border: 1px solid #da361460; }
+.badge-project { background: #2ea04320; color: #3fb950; border: 1px solid #2ea04360; }
+.badge-reference { background: #9e6a0320; color: #d29922; border: 1px solid #9e6a0360; }
+.badge-unknown { background: #30363d; color: #8b949e; border: 1px solid #484f58; }
+
+/* Content area */
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+/* Cards */
+.card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.15s; }
+.card:hover { border-color: #58a6ff; }
+.card.selected { border-color: #f78166; }
+.card-title { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px; }
+.card-desc { font-size: 12px; color: #8b949e; margin-bottom: 8px; }
+.card-meta { display: flex; gap: 8px; align-items: center; font-size: 11px; color: #6e7681; }
+.card-project { background: #21262d; padding: 2px 8px; border-radius: 12px; }
+
+/* Editor */
+.editor-panel { display: flex; flex-direction: column; height: 100%; }
+.editor-toolbar { padding: 12px 24px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; gap: 8px; align-items: center; }
+.editor-toolbar .file-path { font-size: 12px; color: #8b949e; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+textarea.editor { flex: 1; background: #0d1117; color: #c9d1d9; border: none; outline: none; padding: 20px 24px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; resize: none; }
+
+/* Buttons */
+.btn { padding: 6px 14px; border-radius: 6px; border: 1px solid; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.btn-primary { background: #238636; border-color: #2ea043; color: #fff; }
+.btn-primary:hover { background: #2ea043; }
+.btn-danger { background: transparent; border-color: #f85149; color: #f85149; }
+.btn-danger:hover { background: #da361420; }
+.btn-secondary { background: #21262d; border-color: #30363d; color: #c9d1d9; }
+.btn-secondary:hover { background: #30363d; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Form */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 8px 12px; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #58a6ff; }
+.form-group select option { background: #161b22; }
+.form-group textarea { font-family: 'Cascadia Code', monospace; resize: vertical; min-height: 120px; }
+
+/* Search */
+.search-bar { padding: 12px 16px; border-bottom: 1px solid #30363d; }
+.search-bar input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 6px 10px; font-size: 12px; outline: none; }
+.search-bar input:focus { border-color: #58a6ff; }
+
+/* Sessions */
+.session-card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
+.session-card:hover { border-color: #58a6ff; }
+.session-title { font-size: 13px; color: #c9d1d9; font-family: monospace; }
+.session-meta { font-size: 11px; color: #6e7681; margin-top: 4px; }
+.session-match { font-size: 12px; color: #8b949e; margin-top: 6px; padding: 4px 8px; background: #0d1117; border-radius: 4px; font-family: monospace; border-left: 2px solid #f78166; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: #00000080; display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
+.modal h2 { font-size: 16px; color: #f0f6fc; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* MEMORY.md viewer */
+.memory-index { padding: 20px 24px; }
+.memory-index pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 16px; font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 24px; color: #6e7681; }
+.empty .icon { font-size: 48px; margin-bottom: 12px; }
+.empty p { font-size: 14px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 200; animation: fadeIn 0.2s; }
+.toast.error { background: #da3614; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">🧠</span>
+  <h1>Claude Memory Manager</h1>
+  <span class="subtitle">Persistent context for Claude Code</span>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-title">Filter by type</div>
+    <div class="sidebar-item active" data-filter="all" onclick="setFilter('all')">
+      All memories <span class="badge badge-unknown" id="count-all">0</span>
+    </div>
+    <div class="sidebar-item" data-filter="user" onclick="setFilter('user')">
+      User <span class="badge badge-user" id="count-user">0</span>
+    </div>
+    <div class="sidebar-item" data-filter="feedback" onclick="setFilter('feedback')">
+      Feedback <span class="badge badge-feedback" id="count-feedback">0</span>
+    </div>
+    <div class="sidebar-item" data-filter="project" onclick="setFilter('project')">
+      Project <span class="badge badge-project" id="count-project">0</span>
+    </div>
+    <div class="sidebar-item" data-filter="reference" onclick="setFilter('reference')">
+      Reference <span class="badge badge-reference" id="count-reference">0</span>
+    </div>
+    <div style="margin-top: auto; padding: 16px;">
+      <button class="btn btn-primary" style="width:100%" onclick="showNewModal()">+ New Memory</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('memories')">Memories</div>
+      <div class="tab" onclick="showTab('memory-index')">MEMORY.md</div>
+      <div class="tab" onclick="showTab('sessions')">Session Archive</div>
+    </div>
+
+    <!-- Memories tab -->
+    <div id="tab-memories" class="content">
+      <div id="memories-list"></div>
+      <div id="memories-empty" class="empty hidden">
+        <div class="icon">📂</div>
+        <p>No memory files found.<br>Configure your path in <code>config.yaml</code></p>
+      </div>
+    </div>
+
+    <!-- MEMORY.md tab -->
+    <div id="tab-memory-index" class="hidden memory-index">
+      <div id="memory-index-content"></div>
+    </div>
+
+    <!-- Sessions tab -->
+    <div id="tab-sessions" class="hidden" style="display:flex;flex-direction:column;height:100%">
+      <div class="search-bar">
+        <input type="text" id="session-search" placeholder="Search sessions... (press Enter)" onkeydown="if(event.key==='Enter')searchSessions()">
+      </div>
+      <div class="content" id="sessions-list" style="flex:1"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Editor modal -->
+<div id="editor-modal" class="modal-overlay hidden">
+  <div class="modal" style="width:700px;max-width:95vw">
+    <h2 id="editor-title">Edit Memory</h2>
+    <div style="font-size:11px;color:#6e7681;margin-bottom:12px;font-family:monospace" id="editor-filepath"></div>
+    <textarea class="editor" id="editor-content" style="width:100%;height:400px;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:12px;background:#0d1117;color:#c9d1d9;outline:none;resize:vertical"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteMemory()">Delete</button>
+      <button class="btn btn-secondary" onclick="closeEditor()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMemory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- New memory modal -->
+<div id="new-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>New Memory</h2>
+    <div class="form-group">
+      <label>Project</label>
+      <select id="new-project"></select>
+    </div>
+    <div class="form-group">
+      <label>Filename (without .md)</label>
+      <input type="text" id="new-filename" placeholder="e.g. my_preference">
+    </div>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="new-name" placeholder="Short name">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="new-description" placeholder="One-line description">
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="new-type">
+        <option value="user">user — preferences, profile</option>
+        <option value="feedback">feedback — corrections, guidance</option>
+        <option value="project" selected>project — ongoing work, goals</option>
+        <option value="reference">reference — external resources</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Content</label>
+      <textarea id="new-body" placeholder="Memory content..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeNewModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createMemory()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Session viewer modal -->
+<div id="session-modal" class="modal-overlay hidden">
+  <div class="modal" style="width:800px;max-width:95vw">
+    <h2 id="session-modal-title">Session</h2>
+    <pre id="session-modal-content" style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:16px;font-size:11px;max-height:500px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#c9d1d9"></pre>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSessionModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allMemories = [];
+let currentFilter = 'all';
+let currentPath = null;
+let projects = [];
+
+const typeColors = {
+  user: 'badge-user',
+  feedback: 'badge-feedback',
+  project: 'badge-project',
+  reference: 'badge-reference'
+};
+
+async function loadMemories() {
+  const res = await fetch('/api/memories');
+  allMemories = await res.json();
+  updateCounts();
+  renderMemories();
+}
+
+function updateCounts() {
+  const counts = { all: allMemories.length, user: 0, feedback: 0, project: 0, reference: 0 };
+  allMemories.forEach(m => { if (counts[m.type] !== undefined) counts[m.type]++; });
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById('count-' + k);
+    if (el) el.textContent = counts[k];
+  });
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.filter === f);
+  });
+  renderMemories();
+}
+
+function renderMemories() {
+  const list = document.getElementById('memories-list');
+  const empty = document.getElementById('memories-empty');
+  const filtered = currentFilter === 'all' ? allMemories : allMemories.filter(m => m.type === currentFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = filtered.map(m => `
+    <div class="card ${m.path === currentPath ? 'selected' : ''}" onclick="openEditor('${m.path.replace(/'/g, "\\'")}', '${(m.name||m.filename).replace(/'/g, "\\'")}')">
+      <div class="card-title">${escHtml(m.name || m.filename)}</div>
+      ${m.description ? `<div class="card-desc">${escHtml(m.description)}</div>` : ''}
+      <div class="card-meta">
+        <span class="badge ${typeColors[m.type] || 'badge-unknown'}">${m.type || 'unknown'}</span>
+        <span class="card-project">${escHtml(m.project)}</span>
+        <span>${m.modified}</span>
+        <span style="margin-left:auto">${formatSize(m.size)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function openEditor(path, name) {
+  currentPath = path;
+  renderMemories();
+  const res = await fetch('/api/memory/read?path=' + encodeURIComponent(path));
+  const data = await res.json();
+  document.getElementById('editor-title').textContent = name;
+  document.getElementById('editor-filepath').textContent = path;
+  document.getElementById('editor-content').value = data.content;
+  document.getElementById('editor-modal').classList.remove('hidden');
+}
+
+function closeEditor() {
+  document.getElementById('editor-modal').classList.add('hidden');
+  currentPath = null;
+}
+
+async function saveMemory() {
+  const content = document.getElementById('editor-content').value;
+  const res = await fetch('/api/memory/save', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path: currentPath, content})
+  });
+  const data = await res.json();
+  if (data.ok) { toast('Saved!'); closeEditor(); loadMemories(); }
+  else toast(data.error, true);
+}
+
+async function deleteMemory() {
+  if (!confirm('Delete this memory file?')) return;
+  const res = await fetch('/api/memory/delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path: currentPath})
+  });
+  const data = await res.json();
+  if (data.ok) { toast('Deleted'); closeEditor(); loadMemories(); }
+  else toast(data.error, true);
+}
+
+async function showNewModal() {
+  const res = await fetch('/api/projects');
+  projects = await res.json();
+  const sel = document.getElementById('new-project');
+  sel.innerHTML = projects.map(p => `<option value="${escHtml(p.path)}">${escHtml(p.name)}</option>`).join('');
+  document.getElementById('new-modal').classList.remove('hidden');
+}
+
+function closeNewModal() {
+  document.getElementById('new-modal').classList.add('hidden');
+}
+
+async function createMemory() {
+  const data = {
+    project_path: document.getElementById('new-project').value,
+    filename: document.getElementById('new-filename').value,
+    name: document.getElementById('new-name').value,
+    description: document.getElementById('new-description').value,
+    type: document.getElementById('new-type').value,
+    body: document.getElementById('new-body').value
+  };
+  if (!data.filename) { toast('Filename required', true); return; }
+  const res = await fetch('/api/memory/create', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  const result = await res.json();
+  if (result.ok) { toast('Memory created!'); closeNewModal(); loadMemories(); }
+  else toast(result.error, true);
+}
+
+async function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['memories','memory-index','sessions'][i] === name);
+  });
+  document.getElementById('tab-memories').classList.toggle('hidden', name !== 'memories');
+  document.getElementById('tab-memory-index').classList.toggle('hidden', name !== 'memory-index');
+  document.getElementById('tab-sessions').style.display = name === 'sessions' ? 'flex' : 'none';
+  document.getElementById('tab-sessions').style.flexDirection = 'column';
+  document.getElementById('tab-sessions').style.height = '100%';
+
+  if (name === 'memory-index') loadMemoryIndex();
+  if (name === 'sessions') loadSessions();
+}
+
+async function loadMemoryIndex() {
+  const cfg = await (await fetch('/api/config')).json();
+  // Find MEMORY.md files
+  const res = await fetch('/api/memories');
+  const mems = await res.json();
+  const indexFiles = mems.filter(m => m.filename === 'MEMORY.md');
+  const container = document.getElementById('memory-index-content');
+  if (indexFiles.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="icon">📋</div><p>No MEMORY.md found</p></div>';
+    return;
+  }
+  let html = '';
+  for (const f of indexFiles) {
+    const r = await fetch('/api/memory/read?path=' + encodeURIComponent(f.path));
+    const d = await r.json();
+    html += `<h3 style="color:#f0f6fc;margin-bottom:8px;font-size:14px">📋 ${escHtml(f.project)} / MEMORY.md</h3>`;
+    html += `<pre>${escHtml(d.content)}</pre><br>`;
+  }
+  container.innerHTML = html;
+}
+
+async function loadSessions() {
+  const res = await fetch('/api/sessions');
+  const sessions = await res.json();
+  const list = document.getElementById('sessions-list');
+  if (sessions.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="icon">📚</div><p>No sessions found</p></div>';
+    return;
+  }
+  list.innerHTML = sessions.map(s => `
+    <div class="session-card" onclick="openSession('${s.path.replace(/'/g,"\\'")}', '${s.filename}')">
+      <div class="session-title">${escHtml(s.filename)}</div>
+      <div class="session-meta">${s.modified} · ${formatSize(s.size)}</div>
+    </div>
+  `).join('');
+}
+
+async function searchSessions() {
+  const q = document.getElementById('session-search').value.trim();
+  if (!q) { loadSessions(); return; }
+  const res = await fetch('/api/sessions/search?q=' + encodeURIComponent(q));
+  const results = await res.json();
+  const list = document.getElementById('sessions-list');
+  if (results.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="icon">🔍</div><p>No results for "' + escHtml(q) + '"</p></div>';
+    return;
+  }
+  list.innerHTML = results.map(s => `
+    <div class="session-card" onclick="openSession('${s.path.replace(/'/g,"\\'")}', '${s.filename}')">
+      <div class="session-title">${escHtml(s.filename)}</div>
+      <div class="session-meta">${s.modified}</div>
+      ${s.matches.map(m => `<div class="session-match">${escHtml(m.trim())}</div>`).join('')}
+    </div>
+  `).join('');
+}
+
+async function openSession(path, filename) {
+  const res = await fetch('/api/session/read?path=' + encodeURIComponent(path));
+  const data = await res.json();
+  document.getElementById('session-modal-title').textContent = filename;
+  document.getElementById('session-modal-content').textContent = data.content;
+  document.getElementById('session-modal').classList.remove('hidden');
+}
+
+function closeSessionModal() {
+  document.getElementById('session-modal').classList.add('hidden');
+}
+
+function toast(msg, err=false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + ' B';
+  return (b/1024).toFixed(1) + ' KB';
+}
+
+// Close modals on overlay click
+document.getElementById('editor-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeEditor(); });
+document.getElementById('new-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeNewModal(); });
+document.getElementById('session-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeSessionModal(); });
+
+loadMemories();
+</script>
+</body>
+</html>

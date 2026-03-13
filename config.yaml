@@ -1,0 +1,14 @@
+# Claude Memory Manager - Configuration
+# Adjust these paths to match your setup
+
+# Base path where Claude Code stores project memory files
+# Default: ~/.claude/projects
+memory_base_path: "~/.claude/projects"
+
+# Path to session archive directory (optional)
+# If you use a session archiving script, point this to the archive folder
+# Leave as default if you don't use session archiving
+session_archive_path: "~/.claude/session_archive"
+
+# Port to run the web UI on
+port: 7910

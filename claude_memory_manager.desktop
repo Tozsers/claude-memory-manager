@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Claude Memory Manager
+Comment=Manage Claude Code persistent memory files
+Exec=bash -c "cd /home/sas/Asztal/Cloude/claude_memory_manager && ./start.sh"
+Icon=utilities-system-monitor
+Terminal=true
+Categories=Utility;
