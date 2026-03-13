@@ -105,6 +105,30 @@ textarea.editor { flex: 1; background: #0d1117; color: #c9d1d9; border: none; ou
 .toast.error { background: #da3614; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Issues */
+.issue-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.15s; }
+.issue-card:hover { border-color: #58a6ff; }
+.issue-card.done { opacity: 0.5; }
+.issue-title { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px; }
+.issue-desc { font-size: 12px; color: #8b949e; margin-bottom: 10px; line-height: 1.5; }
+.issue-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.issue-actions { display: flex; gap: 6px; margin-left: auto; }
+.badge-type-bug { background: #da361420; color: #f85149; border: 1px solid #da361440; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-type-feature { background: #1f6feb20; color: #58a6ff; border: 1px solid #1f6feb40; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-type-idea { background: #9e6a0320; color: #d29922; border: 1px solid #9e6a0340; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-prio-high { background: #da361420; color: #f85149; border: 1px solid #da361440; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-prio-medium { background: #9e6a0320; color: #d29922; border: 1px solid #9e6a0340; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-prio-low { background: #2ea04320; color: #3fb950; border: 1px solid #2ea04340; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-status-open { background: #2ea04320; color: #3fb950; border: 1px solid #2ea04340; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-status-in-progress { background: #1f6feb20; color: #58a6ff; border: 1px solid #1f6feb40; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.badge-status-done { background: #30363d; color: #6e7681; border: 1px solid #484f58; border-radius: 12px; padding: 2px 8px; font-size: 11px; }
+.issues-toolbar { padding: 12px 24px; border-bottom: 1px solid #30363d; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.issues-toolbar select { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 6px 10px; font-size: 13px; outline: none; }
+.next-panel { background: #1f6feb10; border: 1px solid #1f6feb40; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; }
+.next-panel h3 { font-size: 13px; color: #58a6ff; margin-bottom: 10px; }
+.next-item { font-size: 13px; color: #c9d1d9; padding: 4px 0; display: flex; gap: 8px; align-items: center; }
+.issue-id { font-size: 11px; color: #6e7681; font-family: monospace; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #0d1117; }
@@ -152,6 +176,7 @@ textarea.editor { flex: 1; background: #0d1117; color: #c9d1d9; border: none; ou
       <div class="tab active" onclick="showTab('memories')">Memories</div>
       <div class="tab" onclick="showTab('memory-index')">MEMORY.md</div>
       <div class="tab" onclick="showTab('sessions')">Session Archive</div>
+      <div class="tab" onclick="showTab('issues')">🐛 Issues</div>
     </div>
 
     <!-- Memories tab -->
@@ -174,6 +199,68 @@ textarea.editor { flex: 1; background: #0d1117; color: #c9d1d9; border: none; ou
         <input type="text" id="session-search" placeholder="Search sessions... (press Enter)" onkeydown="if(event.key==='Enter')searchSessions()">
       </div>
       <div class="content" id="sessions-list" style="flex:1"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Issues tab -->
+<div id="tab-issues" class="hidden" style="flex-direction:column;height:100%">
+  <div class="issues-toolbar">
+    <select id="issues-project" onchange="loadIssues()">
+      <option value="">— select project —</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="showNewIssueModal()">+ New Issue</button>
+    <button class="btn btn-secondary btn-sm" onclick="showNextSteps()">🎯 What's next?</button>
+    <span id="issues-count" style="font-size:12px;color:#6e7681;margin-left:auto"></span>
+  </div>
+  <div class="content" id="issues-list">
+    <div class="empty"><div class="icon">🐛</div><p>Select a project to view issues</p></div>
+  </div>
+</div>
+
+<!-- New Issue modal -->
+<div id="new-issue-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>New Issue</h2>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="ni-type">
+        <option value="bug">🐛 Bug</option>
+        <option value="feature" selected>✨ Feature</option>
+        <option value="idea">💡 Idea</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="ni-title" placeholder="Short description">
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <textarea id="ni-description" rows="3" placeholder="More details..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Priority</label>
+      <select id="ni-priority">
+        <option value="high">🔴 High</option>
+        <option value="medium" selected>🟡 Medium</option>
+        <option value="low">🟢 Low</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeNewIssueModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createIssue()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Next steps modal -->
+<div id="next-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>🎯 What to do next?</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:14px">Top 3 highest priority open issues:</p>
+    <div id="next-content"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('next-modal').classList.add('hidden')">Close</button>
     </div>
   </div>
 </div>
@@ -380,13 +467,17 @@ async function createMemory() {
 
 async function showTab(name) {
   document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', ['memories','memory-index','sessions'][i] === name);
+    t.classList.toggle('active', ['memories','memory-index','sessions','issues'][i] === name);
   });
   document.getElementById('tab-memories').classList.toggle('hidden', name !== 'memories');
   document.getElementById('tab-memory-index').classList.toggle('hidden', name !== 'memory-index');
   document.getElementById('tab-sessions').style.display = name === 'sessions' ? 'flex' : 'none';
   document.getElementById('tab-sessions').style.flexDirection = 'column';
   document.getElementById('tab-sessions').style.height = '100%';
+  document.getElementById('tab-issues').style.display = name === 'issues' ? 'flex' : 'none';
+  document.getElementById('tab-issues').style.flexDirection = 'column';
+  document.getElementById('tab-issues').style.height = '100%';
+  if (name === 'issues') loadIssuesProjects();
 
   if (name === 'memory-index') loadMemoryIndex();
   if (name === 'sessions') loadSessions();
@@ -481,6 +572,126 @@ function formatSize(b) {
 document.getElementById('editor-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeEditor(); });
 document.getElementById('new-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeNewModal(); });
 document.getElementById('session-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeSessionModal(); });
+
+// --- Issues ---
+async function loadIssuesProjects() {
+  const res = await fetch('/api/projects');
+  const projects = await res.json();
+  const sel = document.getElementById('issues-project');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— select project —</option>' +
+    projects.map(p => `<option value="${escHtml(p.path)}" ${p.path===current?'selected':''}>${escHtml(p.name)}</option>`).join('');
+  if (current) loadIssues();
+}
+
+async function loadIssues() {
+  const project_path = document.getElementById('issues-project').value;
+  const list = document.getElementById('issues-list');
+  if (!project_path) {
+    list.innerHTML = '<div class="empty"><div class="icon">🐛</div><p>Select a project to view issues</p></div>';
+    return;
+  }
+  const res = await fetch('/api/issues?project_path=' + encodeURIComponent(project_path));
+  const issues = await res.json();
+  document.getElementById('issues-count').textContent = `${issues.filter(i=>i.status!=='done').length} open`;
+
+  if (issues.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="icon">✅</div><p>No issues yet. Click <strong>+ New Issue</strong> to add one.</p></div>';
+    return;
+  }
+
+  const typeIcon = {bug:'🐛', feature:'✨', idea:'💡'};
+  const statusNext = {open:'in-progress', 'in-progress':'done', done:'open'};
+  const statusLabel = {open:'Open', 'in-progress':'In Progress', done:'Done'};
+
+  let html = '';
+  let shownDivider = false;
+  for (const issue of issues) {
+    if (issue.status === 'done' && !shownDivider) {
+      html += '<hr style="border:none;border-top:1px solid #30363d;margin:16px 0"><p style="font-size:11px;color:#6e7681;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Completed</p>';
+      shownDivider = true;
+    }
+    html += `
+      <div class="issue-card ${issue.status==='done'?'done':''}">
+        <div class="issue-title">${escHtml(issue.title)} <span class="issue-id">#${issue.id}</span></div>
+        ${issue.description ? `<div class="issue-desc">${escHtml(issue.description)}</div>` : ''}
+        <div class="issue-meta">
+          <span class="badge-type-${issue.type}">${typeIcon[issue.type]||''} ${issue.type}</span>
+          <span class="badge-prio-${issue.priority}">${issue.priority}</span>
+          <span class="badge-status-${issue.status}">${statusLabel[issue.status]||issue.status}</span>
+          <span style="font-size:11px;color:#6e7681">${issue.created||''}</span>
+          <div class="issue-actions">
+            <button class="btn btn-secondary btn-sm" onclick="advanceStatus(${issue.id}, '${statusNext[issue.status]}')">→ ${statusLabel[statusNext[issue.status]]}</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteIssue(${issue.id})">✕</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  list.innerHTML = html;
+}
+
+async function advanceStatus(id, newStatus) {
+  const project_path = document.getElementById('issues-project').value;
+  await fetch('/api/issues/update', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project_path, id, status: newStatus})});
+  loadIssues();
+}
+
+async function deleteIssue(id) {
+  if (!confirm('Delete this issue?')) return;
+  const project_path = document.getElementById('issues-project').value;
+  await fetch('/api/issues/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project_path, id})});
+  toast('Deleted'); loadIssues();
+}
+
+function showNewIssueModal() {
+  document.getElementById('ni-title').value = '';
+  document.getElementById('ni-description').value = '';
+  document.getElementById('ni-type').value = 'feature';
+  document.getElementById('ni-priority').value = 'medium';
+  document.getElementById('new-issue-modal').classList.remove('hidden');
+}
+function closeNewIssueModal() { document.getElementById('new-issue-modal').classList.add('hidden'); }
+
+async function createIssue() {
+  const project_path = document.getElementById('issues-project').value;
+  if (!project_path) { toast('Select a project first', true); return; }
+  const title = document.getElementById('ni-title').value.trim();
+  if (!title) { toast('Title required', true); return; }
+  await fetch('/api/issues/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    project_path, title,
+    description: document.getElementById('ni-description').value.trim(),
+    type: document.getElementById('ni-type').value,
+    priority: document.getElementById('ni-priority').value
+  })});
+  toast('Issue created!'); closeNewIssueModal(); loadIssues();
+}
+
+async function showNextSteps() {
+  const project_path = document.getElementById('issues-project').value;
+  if (!project_path) { toast('Select a project first', true); return; }
+  const res = await fetch('/api/issues/next?project_path=' + encodeURIComponent(project_path));
+  const items = await res.json();
+  const typeIcon = {bug:'🐛', feature:'✨', idea:'💡'};
+  const content = document.getElementById('next-content');
+  if (items.length === 0) {
+    content.innerHTML = '<div class="empty" style="padding:20px"><p>No open issues! 🎉</p></div>';
+  } else {
+    content.innerHTML = items.map((i,idx) => `
+      <div class="next-panel" style="margin-bottom:10px">
+        <div class="next-item"><strong>${idx+1}.</strong> ${typeIcon[i.type]||''} ${escHtml(i.title)} <span class="issue-id">#${i.id}</span></div>
+        ${i.description ? `<div style="font-size:12px;color:#8b949e;margin-top:4px;margin-left:18px">${escHtml(i.description)}</div>` : ''}
+        <div style="margin-top:6px;margin-left:18px;display:flex;gap:6px">
+          <span class="badge-prio-${i.priority}">${i.priority}</span>
+          <span class="badge-status-${i.status}">${i.status}</span>
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('next-modal').classList.remove('hidden');
+}
+
+['new-issue-modal','next-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if(e.target===e.currentTarget) document.getElementById(id).classList.add('hidden'); });
+});
 
 loadMemories();
 </script>

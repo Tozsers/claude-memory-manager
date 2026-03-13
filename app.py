@@ -228,6 +228,103 @@ def api_sessions_search():
     results.sort(key=lambda x: x["modified"], reverse=True)
     return jsonify(results)
 
+# --- Issues API ---
+
+def get_issues_path(project_path):
+    return Path(project_path) / "memory" / "issues.jsonl"
+
+def read_issues(project_path):
+    fp = get_issues_path(project_path)
+    if not fp.exists():
+        return []
+    issues = []
+    for line in fp.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                issues.append(json.loads(line))
+            except:
+                pass
+    return issues
+
+def write_issues(project_path, issues):
+    fp = get_issues_path(project_path)
+    fp.parent.mkdir(parents=True, exist_ok=True)
+    fp.write_text("\n".join(json.dumps(i, ensure_ascii=False) for i in issues) + "\n", encoding="utf-8")
+
+@app.route("/api/issues")
+def api_issues_list():
+    project_path = request.args.get("project_path")
+    if not project_path:
+        return jsonify({"error": "No project_path"}), 400
+    issues = read_issues(project_path)
+    # Sort: open/in-progress first, done last; within group by priority
+    prio_order = {"high": 0, "medium": 1, "low": 2}
+    status_order = {"open": 0, "in-progress": 1, "done": 2}
+    issues.sort(key=lambda x: (status_order.get(x.get("status","open"), 0), prio_order.get(x.get("priority","medium"), 1)))
+    return jsonify(issues)
+
+@app.route("/api/issues/create", methods=["POST"])
+def api_issues_create():
+    data = request.json
+    project_path = data.get("project_path")
+    if not project_path:
+        return jsonify({"error": "No project_path"}), 400
+    issues = read_issues(project_path)
+    next_id = max((i.get("id", 0) for i in issues), default=0) + 1
+    issue = {
+        "id": next_id,
+        "type": data.get("type", "feature"),
+        "title": data.get("title", ""),
+        "description": data.get("description", ""),
+        "status": "open",
+        "priority": data.get("priority", "medium"),
+        "created": datetime.now().strftime("%Y-%m-%d")
+    }
+    issues.append(issue)
+    write_issues(project_path, issues)
+    return jsonify({"ok": True, "issue": issue})
+
+@app.route("/api/issues/update", methods=["POST"])
+def api_issues_update():
+    data = request.json
+    project_path = data.get("project_path")
+    issue_id = data.get("id")
+    if not project_path or issue_id is None:
+        return jsonify({"error": "Missing params"}), 400
+    issues = read_issues(project_path)
+    for issue in issues:
+        if issue.get("id") == issue_id:
+            for k in ["status", "priority", "title", "description", "type"]:
+                if k in data:
+                    issue[k] = data[k]
+            break
+    write_issues(project_path, issues)
+    return jsonify({"ok": True})
+
+@app.route("/api/issues/delete", methods=["POST"])
+def api_issues_delete():
+    data = request.json
+    project_path = data.get("project_path")
+    issue_id = data.get("id")
+    if not project_path or issue_id is None:
+        return jsonify({"error": "Missing params"}), 400
+    issues = read_issues(project_path)
+    issues = [i for i in issues if i.get("id") != issue_id]
+    write_issues(project_path, issues)
+    return jsonify({"ok": True})
+
+@app.route("/api/issues/next", methods=["GET"])
+def api_issues_next():
+    project_path = request.args.get("project_path")
+    if not project_path:
+        return jsonify({"error": "No project_path"}), 400
+    issues = read_issues(project_path)
+    prio_order = {"high": 0, "medium": 1, "low": 2}
+    open_issues = [i for i in issues if i.get("status") in ("open", "in-progress")]
+    open_issues.sort(key=lambda x: prio_order.get(x.get("priority","medium"), 1))
+    return jsonify(open_issues[:3])
+
 if __name__ == "__main__":
     cfg = load_config()
     app.run(host="0.0.0.0", port=cfg["port"], debug=False)
