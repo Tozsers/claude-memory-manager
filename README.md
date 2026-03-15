@@ -1,4 +1,8 @@
-# 🧠 Claude Memory Manager
+> ⚠️ **Újabb verzió elérhető / Newer version available:**
+> **[claude-memory-manager-v2](https://github.com/Tozsers/claude-memory-manager-v2)** — REST API, biztonsági javítások, jobb keresés.
+> Ez az eredeti (v1) verzió, Issues tabbal. / This is the original (v1) with Issues tab.
+
+---# 🧠 Claude Memory Manager
 
 **English** | [Magyar](#magyar)
 
